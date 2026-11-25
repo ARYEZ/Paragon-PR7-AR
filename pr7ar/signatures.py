@@ -25,7 +25,7 @@ Get-Content -LiteralPath $args[0] -Encoding UTF8 | ForEach-Object {
     if ($s.SignerCertificate) { $n = $s.SignerCertificate.GetNameInfo('SimpleName', $false) }
     [pscustomobject]@{ p = $p; s = [string]$s.Status; n = $n; o = [bool]$s.IsOSBinary } | ConvertTo-Json -Compress
   } catch {
-    [pscustomobject]@{ p = $p; s = 'Error'; n = ''; o = $false } | ConvertTo-Json -Compress
+    [pscustomobject]@{ p = $p; s = 'Error: ' + $_.Exception.Message; n = ''; o = $false } | ConvertTo-Json -Compress
   }
 }
 """
@@ -36,6 +36,7 @@ class Signature:
     verified: bool | None       # None: not checked (no file, or not Windows)
     signer: str = ""
     os_file: bool = False       # Windows' own (IsOSBinary)
+    status: str = ""            # PowerShell's answer (Valid, NotSigned, HashMismatch ...) or the error: says why
 
 
 def _key(path: str) -> str | None:
@@ -100,10 +101,13 @@ def _powershell(paths: list[str]) -> dict[str, Signature]:
     with open(script, "w", encoding="utf-8-sig") as f:
         f.write(SCRIPT)
     out: dict[str, Signature] = {}
+    # Started from PowerShell 7, powershell.exe (5.1) inherits its PSModulePath and then can't load its own
+    # Microsoft.PowerShell.Security (Get-AuthenticodeSignature): without the variable it uses its defaults.
+    env = {k: v for k, v in os.environ.items() if k.upper() != "PSMODULEPATH"}
     try:
         r = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File",
                             script, lst], capture_output=True, text=True, encoding="utf-8", errors="replace",
-                           timeout=600, creationflags=NO_WINDOW, stdin=subprocess.DEVNULL)
+                           timeout=600, creationflags=NO_WINDOW, stdin=subprocess.DEVNULL, env=env)
         for line in r.stdout.splitlines():
             try:
                 d = json.loads(line)
@@ -112,7 +116,8 @@ def _powershell(paths: list[str]) -> dict[str, Signature]:
             status, p = d.get("s", ""), d.get("p", "")
             if isinstance(p, dict):                 # a line object written out whole: its text is "value"
                 p = p.get("value", "")
-            out[str(p)] = Signature(status == "Valid", str(d.get("n") or ""), bool(d.get("o")))
+            out[str(p)] = Signature(status == "Valid", str(d.get("n") or ""), bool(d.get("o")),
+                                   str(status))
     except (OSError, subprocess.SubprocessError):
         pass
     finally:

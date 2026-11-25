@@ -59,9 +59,12 @@ def test_a_real_scheduled_task():
 
 def test_real_signatures(tmp_path):
     from pr7ar import signatures
+    kernel = os.path.join(os.environ["SystemRoot"], "System32", "ntoskrnl.exe")    # signed inside the file
     notepad = os.path.join(os.environ["SystemRoot"], "System32", "notepad.exe")
     unsigned = tmp_path / "unsigned.exe"
     unsigned.write_bytes(b"MZ" + b"\0" * 200)
-    got = signatures.Checker(str(tmp_path / "cache.json")).check([notepad, str(unsigned)])
-    assert got[notepad].verified is True and got[notepad].signer.startswith("Microsoft")
+    got = signatures.Checker(str(tmp_path / "cache.json")).check([kernel, notepad, str(unsigned)])
+    print({p: (s.status, s.signer) for p, s in got.items()})
+    assert got[kernel].verified is True, got[kernel].status
+    assert got[kernel].signer.startswith("Microsoft")
     assert got[str(unsigned)].verified is False
