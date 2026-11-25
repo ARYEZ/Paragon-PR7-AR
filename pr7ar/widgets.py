@@ -324,6 +324,18 @@ def _icon_path(name: str) -> QPainterPath:
     elif name == "refresh":        # PR7-SM
         p.moveTo(19.5, 12); p.arcTo(QRectF(4.5, 4.5, 15, 15), 0, 300); p.moveTo(19.5, 5.5); p.lineTo(19.5, 11)
         p.lineTo(14, 11)
+    elif name == "compare":        # PR7-AR: two pages side by side with an equals sign (PR7-FS's)
+        p.addRoundedRect(QRectF(2.5, 4, 7.5, 16), 1.2, 1.2); p.addRoundedRect(QRectF(14, 4, 7.5, 16), 1.2, 1.2)
+        p.moveTo(10.8, 10.5); p.lineTo(13.2, 10.5); p.moveTo(10.8, 13.5); p.lineTo(13.2, 13.5)
+    elif name == "jump":           # PR7-AR: an arrow out of a box (jump to the entry / the file)
+        p.moveTo(13, 4); p.lineTo(20, 4); p.lineTo(20, 11); p.moveTo(20, 4); p.lineTo(11, 13)
+        p.moveTo(17, 14); p.lineTo(17, 20); p.lineTo(4, 20); p.lineTo(4, 7); p.lineTo(10, 7)
+    elif name == "shield":         # PR7-AR: run as administrator
+        p.moveTo(12, 2.5); p.lineTo(20, 5.5); p.lineTo(20, 11); p.cubicTo(20, 16, 16.5, 19.5, 12, 21.5)
+        p.cubicTo(7.5, 19.5, 4, 16, 4, 11); p.lineTo(4, 5.5); p.closeSubpath()
+    elif name == "registry":       # PR7-AR: a registry key (stacked cubes)
+        for x, y in ((3, 13), (11, 13), (7, 5)):
+            p.addRoundedRect(QRectF(x, y, 8, 7), 1, 1)
     elif name == "chart":
         p.moveTo(3.5, 20.5); p.lineTo(20.5, 20.5); p.moveTo(4, 16); p.lineTo(9, 10); p.lineTo(13, 13.5); p.lineTo(20, 5)
     elif name == "app":            # a program: a window with its title bar
