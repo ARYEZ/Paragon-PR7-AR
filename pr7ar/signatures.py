@@ -18,7 +18,7 @@ NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 SCRIPT = r"""
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 Get-Content -LiteralPath $args[0] -Encoding UTF8 | ForEach-Object {
-  $p = $_
+  $p = [string]$_      # a plain string: Get-Content's lines carry PSPath etc., which ConvertTo-Json would write out
   try {
     $s = Get-AuthenticodeSignature -LiteralPath $p -ErrorAction Stop
     $n = ''
@@ -109,8 +109,10 @@ def _powershell(paths: list[str]) -> dict[str, Signature]:
                 d = json.loads(line)
             except ValueError:
                 continue
-            status = d.get("s", "")
-            out[d.get("p", "")] = Signature(status == "Valid", d.get("n") or "", bool(d.get("o")))
+            status, p = d.get("s", ""), d.get("p", "")
+            if isinstance(p, dict):                 # a line object written out whole: its text is "value"
+                p = p.get("value", "")
+            out[str(p)] = Signature(status == "Valid", str(d.get("n") or ""), bool(d.get("o")))
     except (OSError, subprocess.SubprocessError):
         pass
     finally:
