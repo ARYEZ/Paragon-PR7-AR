@@ -9,6 +9,9 @@ import pytest
 
 from pr7ar.linux import CRON_OFF, Linux, LinuxPlaces
 
+# cron.* scripts are on / off by their executable bit (run-parts' rule); Windows has none (every file is X_OK there)
+needs_exec_bit = pytest.mark.skipif(os.name == "nt", reason="Windows has no executable bit")
+
 
 def write(path: Path, text: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -77,6 +80,7 @@ def by_name(entries):
     return {e.name: e for e in entries}
 
 
+@needs_exec_bit
 def test_every_place_is_read(pc):
     lx, root, home, _, _ = pc
     got = by_name(lx.collect())
@@ -127,6 +131,7 @@ def test_services_and_timers(pc):
         lx.delete(by_name(lx.collect())["cups.service"])
 
 
+@needs_exec_bit
 def test_cron_lines_scripts_and_modules(pc):
     lx, root, home, calls, mine = pc
     got = by_name(lx.collect())

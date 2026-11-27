@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+- The Linux (PR7-OS) support of 0.2.0, released: two of its tests check cron scripts by their executable bit,
+  which Windows doesn't have, and stopped 0.2.0's Windows build. They're skipped on Windows; nothing else changes.
+
 ## 0.2.0
 
 PR7-AR runs on Linux (PR7-OS), with Autoruns' tabs filled from Linux's places:
