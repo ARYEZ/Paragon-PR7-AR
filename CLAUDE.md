@@ -23,6 +23,13 @@ on Linux for tests. The owner writes Python; explain the why.
   task -> schtasks, service -> Start 4 + "PR7-AR Start". `locked`: userinit / explorer / autocheck. `delete` (services:
   the key; files: `trash.send`). `Entry.windows` = OS file / signed "Microsoft Windows" (tasks under \Microsoft\Windows\
   unless unverified). Snapshots: `save_snapshot` / `load_snapshot` (.pr7ar JSON), `compare` -> (new keys, gone).
+- **Linux (PR7-OS)**: `linux.py` (no Qt) `Linux(LinuxPlaces(root, config_home, data), run, root_run, crontab)`:
+  `collect` (XDG autostart user + system, OnlyShowIn/NotShowIn; systemd units enabled = links in *.wants, disabled ones
+  remembered in <data>/linux-disabled.json; timers -> their service's ExecStart; cron lines (system crontabs' user field
+  dropped), cron.* scripts, modules-load.d), `set_enabled` (Hidden=true / override copy, systemctl, CRON_OFF comment,
+  chmod, all root work via `root_run` = pkexec: tee for files), `delete` (yours to the trash; package-owned refused).
+  `LOCKED` = essential units. The window uses it when no registry is given on Linux (`MainWindow(linux=)` in tests,
+  `LINUX_TABS`); the shared tests' made-up Windows is unchanged. tests/test_linux.py on a made-up root.
 - `pr7ar/signatures.py` (no Qt): one PowerShell Get-AuthenticodeSignature run per refresh (catalog signatures too),
   cached by path + size + time in <data>/signatures.json; `run=` injectable. `winver.py` (PR7-SM's) for descriptions.
   <data> = %APPDATA%\Paragon\PR7-AR (**PR7AR_DATA** in tests); **PR7AR_TRASH** points the Recycle Bin at a folder.

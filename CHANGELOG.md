@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0
+
+PR7-AR runs on Linux (PR7-OS), with Autoruns' tabs filled from Linux's places:
+- **Logon**: autostart entries, yours and the system's (another desktop's, like GNOME's, left out: they never run here).
+- **Services**: systemd services, the system's and your own; **Scheduled Tasks**: systemd timers, /etc/crontab,
+  /etc/cron.d, your crontab and the scripts in /etc/cron.daily and the like; **Drivers**: kernel modules loaded at boot.
+- **Switching off is each place's own way**, so switching back on restores it and the entry stays listed, unticked:
+  autostart entries get Hidden=true (a system one through your own copy of the same name: no password needed), units are
+  disabled with systemctl, cron lines are commented out with Autoruns' AutorunsDisabled mark, cron scripts stop being
+  executable. What belongs to the system asks for your password (pkexec). The system's essential parts (systemd's own,
+  D-Bus, the login screen, the session) can't be switched off; package-owned entries can't be deleted (switch them off,
+  or remove the program with PR7-UN).
+- Jump to Entry opens the file in PR7-W; "Hide Windows entries" is "Hide system entries" there.
+Nothing changes on Windows.
+
 ## 0.1.3
 
 - The family list (`family.py`) knows the three newest Paragon apps: PR7-HW (hardware information), PR7-BK

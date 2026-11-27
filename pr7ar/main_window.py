@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QFileDialog, QFrame, QGr
                                QTreeView, QVBoxLayout, QWidget)
 
 from . import __version__, entries, family, finish, registry, settings, signatures, tasks, theme, widgets
+from . import linux as linux_places
 from .entries import Entry
 
 UNSIGNED = "#D6457E"          # family pink: the publisher can't be verified
@@ -195,12 +196,20 @@ def _dim(text):
     return lab
 
 
+LINUX_TABS = ["Everything", "Logon", "Scheduled Tasks", "Services", "Drivers"]
+
+
 class MainWindow(QMainWindow):
     def __init__(self, reg: registry.Registry | None = None, places: entries.Places | None = None,
                  scheduler: tasks.Scheduler | None = None, checker: signatures.Checker | None = None,
-                 sync: bool = False):
+                 sync: bool = False, linux: "linux_places.Linux | None" = None):
         super().__init__()
         self.sync = sync
+        # Linux (PR7-OS): Autoruns' tabs from Linux's places (linux.py). The tests' made-up Windows (a registry given)
+        # stays Windows on any system.
+        self.linux = linux if linux is not None else (
+            linux_places.Linux() if reg is None and sys.platform.startswith("linux") else None)
+        self.tab_names = LINUX_TABS if self.linux else entries.TABS
         self.answers: dict = {}
         self.said: list = []
         self.reg = reg or registry.default()
@@ -261,7 +270,7 @@ class MainWindow(QMainWindow):
         self.filter.setFixedWidth(280)
         self.filter.textChanged.connect(lambda _: self.show_rows())
         bl.addWidget(self.filter)
-        self.hide_windows = QCheckBox("Hide Windows entries")
+        self.hide_windows = QCheckBox("Hide system entries" if self.linux else "Hide Windows entries")
         self.hide_windows.setChecked(settings.get_bool("hide_windows", True))
         self.hide_windows.toggled.connect(self._hide_windows)
         bl.addWidget(self.hide_windows)
@@ -274,6 +283,7 @@ class MainWindow(QMainWindow):
         self.keys["delete"].clicked.connect(lambda: self.delete(self.current()))
         self.keys["admin"].clicked.connect(self.as_admin)
         self.keys["admin"].setEnabled(sys.platform == "win32" and not is_admin())
+        self.keys["admin"].setVisible(not self.linux)        # Linux asks for your password per change (pkexec)
 
         self.banner = QFrame()
         self.banner.setObjectName("banner")
@@ -290,7 +300,7 @@ class MainWindow(QMainWindow):
         self.tabs = QTabBar()
         self.tabs.setExpanding(False)
         self.tabs.setDrawBase(False)
-        for name in entries.TABS:
+        for name in self.tab_names:
             self.tabs.addTab(name.upper())
         self.tabs.currentChanged.connect(lambda _: self.show_rows())
         th = QWidget()
@@ -468,6 +478,8 @@ class MainWindow(QMainWindow):
 
         def work():
             try:
+                if self.linux:
+                    return self.linux.collect(), None
                 return entries.collect(self.reg, self.places, self.scheduler), None
             except Exception as e:      # noqa: BLE001 - shown to the user
                 return [], str(e)
@@ -486,7 +498,8 @@ class MainWindow(QMainWindow):
         self.status.setText(self._status_text() + "  ·  checking publishers…")
 
         def work():
-            entries.fill_details(got, self.checker)
+            if not self.linux:                 # Linux: descriptions come with the entries; no signatures to check
+                entries.fill_details(got, self.checker)
             return got
         if self.sync:
             self.bridge.signed.emit(work())
@@ -499,7 +512,7 @@ class MainWindow(QMainWindow):
             self.show_rows()
 
     def tab(self) -> str:
-        return entries.TABS[self.tabs.currentIndex()]
+        return self.tab_names[self.tabs.currentIndex()]
 
     def shown(self) -> list[Entry]:
         tab, text = self.tab(), self.filter.text().strip()
@@ -610,9 +623,12 @@ class MainWindow(QMainWindow):
     # ================================================================ changing things
     def toggle(self, e: Entry, on: bool) -> bool:
         try:
-            entries.set_enabled(e, on, self.reg, self.scheduler)
+            if self.linux:
+                self.linux.set_enabled(e, on)
+            else:
+                entries.set_enabled(e, on, self.reg, self.scheduler)
         except PermissionError as err:
-            if e.locked:
+            if e.locked or self.linux:
                 self._say("error", str(err.strerror or err))
             else:
                 self._say("error", f"{e.name} is machine-wide: changing it needs administrator rights. "
@@ -637,9 +653,15 @@ class MainWindow(QMainWindow):
         if not self._ask("confirm", warn):
             return False
         try:
-            entries.delete(e, self.reg, self.scheduler)
-        except PermissionError:
-            self._say("error", f"{e.name} is machine-wide: deleting it needs administrator rights (As Admin).")
+            if self.linux:
+                self.linux.delete(e)
+            else:
+                entries.delete(e, self.reg, self.scheduler)
+        except PermissionError as err:
+            if self.linux:
+                self._say("error", str(err.strerror or err))
+            else:
+                self._say("error", f"{e.name} is machine-wide: deleting it needs administrator rights (As Admin).")
             return False
         except OSError as err:
             self._say("error", f"{e.name} couldn't be deleted: {err.strerror or err}")
@@ -652,6 +674,18 @@ class MainWindow(QMainWindow):
     def jump_entry(self, e: Entry | None):
         """Autoruns' Jump to Entry: the registry key in Regedit, the Startup folder, Task Scheduler or Services."""
         if e is None:
+            return
+        if self.linux:                         # the file that starts it, in PR7-W (else the default text editor)
+            r = e.ref
+            path = r.get("user") or r.get("system") or r.get("file") or ""
+            if not path:
+                self._say("info", f"{e.name} is in your crontab: crontab -e edits it.")
+                return
+            self.last_jump = path
+            launch = self.answers.get("launch", family.launch)
+            if not launch("PR7-W", [path]):
+                opener = self.answers.get("url", QDesktopServices.openUrl)
+                opener(QUrl.fromLocalFile(path))
             return
         if e.kind in ("value", "key", "list", "service"):
             r = e.ref
